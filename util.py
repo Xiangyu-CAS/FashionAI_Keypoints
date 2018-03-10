@@ -64,7 +64,7 @@ def Config(filename):
         print '{}: {}'.format(x, parser[x])
     return parser
 
-def adjust_learning_rate(optimizer, iters, base_lr, policy_parameter, policy='step', multiple=[1]):
+def adjust_learning_rate(optimizer, iters, base_lr, policy_parameter, policy='step', multiple=None):
 
     if policy == 'fixed':
         lr = base_lr
@@ -98,8 +98,9 @@ def adjust_learning_rate(optimizer, iters, base_lr, policy_parameter, policy='st
                 break
         lr = max(lr * policy_parameter['gamma'], lr * (1 - (iters - stepstart) * 1.0 / (stepend - stepstart)) ** policy_parameter['power'])
 
-    for i, param_group in enumerate(optimizer.param_groups):
-        param_group['lr'] = lr * multiple[i]
+    if multiple != None:
+        for i, param_group in enumerate(optimizer.param_groups):
+            param_group['lr'] = lr * multiple[i]
     return lr
 
 

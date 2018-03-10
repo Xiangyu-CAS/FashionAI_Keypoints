@@ -1,0 +1,16 @@
+workers: 4
+weight_decay: 0.0005
+momentum: 0.9
+display: 10
+max_iter: 160000
+batch_size: 4
+test_interval: 10
+topk: 3
+base_lr: 0.00001
+start_iters: 0
+best_model: 12345678.9
+#-------------lr_policy--------------------#
+lr_policy: 'multistep'
+policy_parameter:
+  stepvalue: [50000, 100000, 120000]
+  gamma: 0.33

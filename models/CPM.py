@@ -1,9 +1,15 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import torch
 import torch.nn as nn
 import os
 import sys
 import math
 import torchvision.models as models
+
+
 
 def make_net_dict():
 
@@ -155,4 +161,4 @@ def PoseModel(num_point, num_stages=6, batch_norm=False, pretrained=False):
 
 
 if __name__ == '__main__':
-    print PoseModel(25, 6, batch_norm=False)
+    print(PoseModel(25, 6, batch_norm=False))

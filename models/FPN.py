@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import torch
 import torch.nn as nn
 import math
@@ -122,6 +126,19 @@ class ResNet(nn.Module):
 
         return nn.Sequential(*layers)
 
+    def load_weights(self, path):
+        model_dict = self.state_dict()
+        print('loading model from {}'.format(path))
+        try:
+            #state_dict = torch.load(self.path)
+            # self.load_state_dict({k: v for k, v in state_dict.items() if k in self.state_dict()})
+            pretrained_dict = torch.load(path)
+            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
+            model_dict.update(pretrained_dict)
+            self.load_state_dict(model_dict)
+        except:
+            print ('loading model failed, {} may not exist'.format(path))
+
     def forward(self, x):
         x = self.conv1(x)
         x = self.bn1(x)
@@ -145,22 +162,37 @@ class FPN(nn.Module):
         self.out_channels = out_channels
         self.P6 = nn.MaxPool2d(kernel_size=1, stride=2, padding=0, ceil_mode=False)
         self.P5_conv1 = nn.Conv2d(2048, self.out_channels, kernel_size=1, stride=1)
-        self.P5_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1),
+        self.P5_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1, padding=1)
         self.P4_conv1 =  nn.Conv2d(1024, self.out_channels, kernel_size=1, stride=1)
-        self.P4_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1),
+        self.P4_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1, padding=1)
 
         self.P3_conv1 = nn.Conv2d(512, self.out_channels, kernel_size=1, stride=1)
-        self.P3_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1)
+        self.P3_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1, padding=1)
         self.P2_conv1 = nn.Conv2d(256, self.out_channels, kernel_size=1, stride=1)
-        self.P2_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1)
+        self.P2_conv2 = nn.Conv2d(self.out_channels, self.out_channels, kernel_size=3, stride=1, padding=1)
 
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Conv2d):
+                n = m.kernel_size[0] * m.kernel_size[1] * m.out_channels
+                m.weight.data.normal_(0, math.sqrt(2. / n))
+                if m.bias is not None:
+                    m.bias.data.zero_()
+            elif isinstance(m, nn.BatchNorm2d):
+                m.weight.data.fill_(1)
+                m.bias.data.zero_()
+            elif isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, 0.01)
+                m.bias.data.zero_()
 
     def forward(self, C1, C2, C3 ,C4, C5):
 
-        p5_out = self.P5_conv1(x)
-        p4_out = self.P4_conv1(c4_out) + F.upsample(p5_out, scale_factor=2)
-        p3_out = self.P3_conv1(c3_out) + F.upsample(p4_out, scale_factor=2)
-        p2_out = self.P2_conv1(c2_out) + F.upsample(p3_out, scale_factor=2)
+        p5_out = self.P5_conv1(C5)
+        p4_out = torch.add(self.P4_conv1(C4), F.upsample(p5_out, scale_factor=2))
+        p3_out = torch.add(self.P3_conv1(C3), F.upsample(p4_out, scale_factor=2))
+        p2_out = torch.add(self.P2_conv1(C2), F.upsample(p3_out, scale_factor=2))
 
         p5_out = self.P5_conv2(p5_out)
         p4_out = self.P4_conv2(p4_out)
@@ -178,12 +210,46 @@ class FPN(nn.Module):
 ############################################################
 
 class pose_estimation(nn.Module):
-	def __init__(self, pretrain=True):
-		self.resnet50 = ResNet(Bottleneck, [3, 4, 6, 3])
-		if pretrain == True:
-			self.model_path = '/data/xiaobing.wang/.torch/models/resnet50-19c8e357.pth'
-			state_dict = torch.load(self.model_path)
-			self.resnet50.load_state_dict(state_dict)
-		self.fpn = FPN(out_channels)
+    def __init__(self, class_num, pretrain=True):
+        super(pose_estimation, self).__init__()
+        self.resnet = ResNet(Bottleneck, [3, 4, 6, 3]) # resnet50
+        if pretrain == True:
+            self.model_path = '/home/xiangyuzhu/workspace/data/pretrain/ResNet/resnet50-19c8e357.pth'
+            self.resnet.load_weights(self.model_path)
+        self.apply_fix()
+        self.fpn = FPN(out_channels=256)
+
+        self.predict_P6 = nn.Conv2d(256, class_num,kernel_size=1, stride=1)
+        self.predict_P5 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
+        self.predict_P4 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
+        self.predict_P3 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
+        self.predict_P2 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
+
+
+    def apply_fix(self):
+        # 1. fix bn
+        # 2. fix conv1 conv2
+        for param in self.resnet.conv1.parameters():
+            param.requires_grad = False
+        for param in self.resnet.layer1.parameters():
+            param.requires_grad = False
+
+
+    def forward(self, x):
+        C1, C2, C3, C4, C5 = self.resnet(x)
+        P2, P3, P4, P5, P6 = self.fpn(C1, C2, C3, C4, C5)
+
+        pred_out_P6 = self.predict_P6(P6)
+        pred_out_P5 = self.predict_P5(P5)
+        pred_out_P4 = self.predict_P6(P4)
+        pred_out_P3 = self.predict_P6(P3)
+        pred_out_P2 = self.predict_P6(P2)
+
+        return pred_out_P2, pred_out_P3, pred_out_P4, pred_out_P5, pred_out_P6
+
+
+
+
+
 
 
