@@ -101,6 +101,9 @@ def adjust_learning_rate(optimizer, iters, base_lr, policy_parameter, policy='st
     if multiple != None:
         for i, param_group in enumerate(optimizer.param_groups):
             param_group['lr'] = lr * multiple[i]
+    else:
+        for i, param_group in enumerate(optimizer.param_groups):
+            param_group['lr'] = lr
     return lr
 
 

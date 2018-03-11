@@ -133,8 +133,14 @@ class ResNet(nn.Module):
             #state_dict = torch.load(self.path)
             # self.load_state_dict({k: v for k, v in state_dict.items() if k in self.state_dict()})
             pretrained_dict = torch.load(path)
-            pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}
-            model_dict.update(pretrained_dict)
+            from collections import OrderedDict
+            tmp = OrderedDict()
+            for k,v in pretrained_dict.items():
+                if k in model_dict:
+                    tmp[k] = v     
+            # pretrained_dict = {k: v for k, v in pretrained_dict.items() if k in model_dict}           
+            # model_dict.update(pretrained_dict)
+            model_dict.update(tmp)
             self.load_state_dict(model_dict)
         except:
             print ('loading model failed, {} may not exist'.format(path))
@@ -205,6 +211,11 @@ class FPN(nn.Module):
 
         return p2_out, p3_out, p4_out, p5_out, p6_out
 
+
+############################################################
+#  RefineNet
+############################################################
+
 ############################################################
 #  Pose Estimation Graph
 ############################################################
@@ -214,7 +225,7 @@ class pose_estimation(nn.Module):
         super(pose_estimation, self).__init__()
         self.resnet = ResNet(Bottleneck, [3, 4, 6, 3]) # resnet50
         if pretrain == True:
-            self.model_path = '/home/xiangyuzhu/workspace/data/pretrain/ResNet/resnet50-19c8e357.pth'
+            self.model_path = '/disk/pretrain/ResNet/resnet50-19c8e357.pth'
             self.resnet.load_weights(self.model_path)
         self.apply_fix()
         self.fpn = FPN(out_channels=256)
@@ -225,6 +236,21 @@ class pose_estimation(nn.Module):
         self.predict_P3 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
         self.predict_P2 = nn.Conv2d(256, class_num, kernel_size=1, stride=1)
 
+        self.downsample = nn.MaxPool2d(kernel_size=1, stride=2, padding=0, ceil_mode=False)
+
+        self._init_weights(self.predict_P6)
+        self._init_weights(self.predict_P5)
+        self._init_weights(self.predict_P4)
+        self._init_weights(self.predict_P3)
+        self._init_weights(self.predict_P2)
+
+
+
+    def _init_weights(self, conv):
+            if isinstance(conv, nn.Conv2d):
+                conv.weight.data.normal_(0, 0.01)
+                if conv.bias is not None:
+                    conv.bias.data.zero_()
 
     def apply_fix(self):
         # 1. fix bn
@@ -244,6 +270,10 @@ class pose_estimation(nn.Module):
         pred_out_P4 = self.predict_P6(P4)
         pred_out_P3 = self.predict_P6(P3)
         pred_out_P2 = self.predict_P6(P2)
+
+        pred_out_P5 = F.upsample(pred_out_P5, scale_factor=4)
+        pred_out_P4 = F.upsample(pred_out_P4, scale_factor=2)
+        pred_out_P2 = self.downsample(pred_out_P2)
 
         return pred_out_P2, pred_out_P3, pred_out_P4, pred_out_P5, pred_out_P6
 

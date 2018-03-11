@@ -25,8 +25,8 @@ def construct_model(args):
 
 def train_net(model, args):
 
-	ann_path = '/home/xiangyuzhu/workspace/data/fashionAI/train/Annotations/annotations.csv'
-	img_dir = '/home/xiangyuzhu/workspace/data/fashionAI/train'
+	ann_path = '/disk/data/fashionAI/train/Annotations/train.csv'
+	img_dir = '/disk/data/fashionAI/train/'
 
 	stride = 8
 	cudnn.benchmark = True
@@ -46,8 +46,8 @@ def train_net(model, args):
 
 	optimizer = torch.optim.SGD(params, config.base_lr, momentum=config.momentum,
 	                            weight_decay=config.weight_decay)
-	# model.train() # only for bn and dropout
-	model.eval()
+	model.train() # only for bn and dropout
+	# model.eval()
 
 
 	iters = 0
@@ -72,12 +72,12 @@ def train_net(model, args):
 			heatmap_var = torch.autograd.Variable(heatmap)
 
 			heat2, heat3, heat4, heat5, heat6 = model(input_var)
-			loss1 = criterion(heat3, heatmap_var) * heat_weight
-			loss2 = criterion(heat3, heatmap_var) * heat_weight
-			loss3 = criterion(heat3, heatmap_var) * heat_weight
-			loss4 = criterion(heat3, heatmap_var) * heat_weight
-			loss5 = criterion(heat3, heatmap_var) * heat_weight
-			loss6 = criterion(heat3, heatmap_var) * heat_weight
+			loss1 = criterion(heat3, heatmap_var)
+			loss2 = criterion(heat2, heatmap_var)
+			loss3 = criterion(heat3, heatmap_var)
+			loss4 = criterion(heat4, heatmap_var)
+			loss5 = criterion(heat5, heatmap_var)
+			loss6 = criterion(heat3, heatmap_var)
 
 			loss = loss1 + loss2 + loss3 + loss4 + loss5 + loss6
 			losses.update(loss.data[0], input.size(0))
