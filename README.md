@@ -7,6 +7,6 @@ train
 
 eval
 1. cd ./evaluation
-2. python ./eval
+2. python ./csv_evaluation.py or python ./submit.py
 
 CPM - > 20.47%
