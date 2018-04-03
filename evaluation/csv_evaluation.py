@@ -17,8 +17,7 @@ def apply_model(oriImg, model, multiplier):
 	for m in range(len(multiplier)):
 		scale = multiplier[m]
 		imageToTest = cv2.resize(normed_img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-		# imgToTest_padded, pad = util.padRightDownCorner(imageToTest, stride, 128)
-		imgToTest_padded, pad = util.padRightDownCorner(imageToTest, 32, 128)
+		imgToTest_padded, pad = util.padRightDownCorner(imageToTest, stride, 128)
 
 		input_img = np.transpose(np.float32(imgToTest_padded[:, :, :, np.newaxis]),
 		                         (3, 2, 0, 1)) / 255 - 0.5  # required shape (1, c, h, w)
@@ -26,11 +25,10 @@ def apply_model(oriImg, model, multiplier):
 		input_var = torch.autograd.Variable(torch.from_numpy(input_img).cuda())
 
 		# get the features
-		# heat1, heat2, heat3, heat4, heat5, heat6 = model(input_var)
-		heat2, heat3, heat4, heat5, heat6 = model(input_var)
+		heat1, heat2, heat3, heat4, heat5, heat6 = model(input_var)
 
 		# get the heatmap
-		heatmap = heat3.data.cpu().numpy()
+		heatmap = heat6.data.cpu().numpy()
 		heatmap = np.transpose(np.squeeze(heatmap), (1, 2, 0))  # (h, w, c)
 		heatmap = cv2.resize(heatmap, (0, 0), fx=stride, fy=stride, interpolation=cv2.INTER_CUBIC)
 		heatmap = heatmap[:imgToTest_padded.shape[0] - pad[2], :imgToTest_padded.shape[1] - pad[3], :]
@@ -164,7 +162,7 @@ def evaluate(gt_file, dt_file, num_imgs):
 	print('score = {}'.format(value))
 
 def eval():
-	gt_file = '/disk/data/fashionAI/train/Annotations/train.csv'
+	gt_file = '../FashionAI/data/train/Annotations/val.csv'
 	dt_file = 'val_result.csv'
 	# dt_file = 'modify.csv'
 
@@ -173,16 +171,16 @@ def eval():
 
 
 def main():
-	os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+	os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 
 	#--------------------------- model -------------------------------------------------------------------------------
-	import models.FPN
-	pytorch_model = '/disk/Heatmap/experiments/FPN/5000__.pth.tar'
-	model = models.FPN.pose_estimation(class_num=25, pretrain=False)
+	import models.CPM
+	pytorch_model = '../FashionAI/Heatmap/experiments/CPM/20000.pth.tar'
+	model = models.CPM.PoseModel(num_point=25, pretrained=False)
 	#-----------------------------------------------------------------------------------------------------------------
 
-	img_dir = '/disk/data/fashionAI/train/'
-	ann_path = '/disk/data/fashionAI/train/Annotations/train.csv'
+	img_dir = '../FashionAI/data/train/'
+	ann_path = '../FashionAI/data/train/Annotations/val.csv'
 	result_name = 'val_result.csv'
 	scale_search = [0.5, 0.7, 1.0, 1.3] #[0.5, 1.0, 1.5]
 	boxsize = 384
@@ -200,7 +198,7 @@ def main():
 	info=anns[0]
 	anns = anns[1:]
 	#---------------------------------------------------------
-	num_imgs =20# len(anns)
+	num_imgs = 100# len(anns)
 	results = []
 	results.append(info)
 
@@ -212,7 +210,7 @@ def main():
 		#multiplier = [x * boxsize / oriImg.shape[0] for x in scale_search]
 		multiplier = scale_search
 		keypoints, canvas = apply_model(oriImg, model, multiplier)
-		cv2.imwrite(os.path.join('./result', ann[0].split('/')[-1]), canvas)
+		# cv2.imwrite(os.path.join('./result', ann[0].split('/')[-1]), canvas)
 		row = prepare_row(ann, keypoints)
 		results.append(row)
 	write_csv(result_name, results)

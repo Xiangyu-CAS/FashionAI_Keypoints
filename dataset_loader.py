@@ -9,12 +9,12 @@ import csv
 
 class dataset_loader(data.Dataset):
 
-	def __init__(self, img_dir, ann_path, stride, transforms=False):
+	def __init__(self, img_dir, ann_path, stride, transforms=None, sigma = 15):
 
-		self.sigma = 15 #9 #15
+		self.sigma = sigma#15 #9 #15
 		self.stride = stride
 		self.img_dir = img_dir
-		self.trasforms = transforms
+		self.transforms = transforms
 		self.anns = []
 		self.info = []
 		with open(ann_path,'rb') as f:
@@ -33,9 +33,14 @@ class dataset_loader(data.Dataset):
 		catergory = ann[1]
 		kpt = _get_keypoints(ann)
 		# ----------------- transform ----------------------
-		# croppad
 		center = [img.shape[0]/2,img.shape[1]/2]
-		img, kpt = _croppad(img, kpt, center, 384, 384)
+		
+		# ----------------- transform ----------------------
+		if not self.transforms:
+			img, kpt = _croppad(img, kpt, center, 384, 384)
+		else:
+			img, kpt, center = self.transforms(img, kpt, center)
+		#---------------------------------------------------
 		heatmaps = _generate_heatmap(img, kpt,self.stride, self.sigma)
 
 		img = np.array(img, dtype=np.float32)

@@ -6,8 +6,8 @@ def cell_str2init(cell):
 	x, y, vis = int(x_str), int(y_str), int(vis_str)
 	return [x,y,vis]
 
-# csv_file = 'val_result.csv'
-csv_file = 'result_0309_23.16%.csv'
+csv_file = 'val_result.csv'
+# csv_file = 'result_0309_23.16%.csv'
 anns = []
 with open(csv_file, 'rb') as f:
 	reader = csv.reader(f)

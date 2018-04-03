@@ -49,12 +49,8 @@ def get_parameters(model, config, isdefault=True):
     return params, [1., 2., 4., 8.]
 
 def train_net(model, args):
-	# ann_path = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/warm_up_train/Annotations/annotations.csv'
-	# img_dir = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/warm_up_train/'
-
-	# ann_path = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/train/Annotations/train.csv'
-	ann_path = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/train/Annotations/trainminusval.csv'
-	img_dir = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/train/'
+	ann_path = '../FashionAI/data/train/Annotations/trainminusval.csv'
+	img_dir = '../FashionAI/data/train/'
 
 	stride = 8
 	cudnn.benchmark = True

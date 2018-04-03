@@ -1,3 +1,4 @@
+import csv
 import os
 import sys
 import numpy as np
@@ -16,7 +17,8 @@ def apply_model(oriImg, model, multiplier):
 	for m in range(len(multiplier)):
 		scale = multiplier[m]
 		imageToTest = cv2.resize(normed_img, (0, 0), fx=scale, fy=scale, interpolation=cv2.INTER_CUBIC)
-		imgToTest_padded, pad = util.padRightDownCorner(imageToTest, stride, 128)
+		# imgToTest_padded, pad = util.padRightDownCorner(imageToTest, stride, 128)
+		imgToTest_padded, pad = util.padRightDownCorner(imageToTest, 32, 128)
 
 		input_img = np.transpose(np.float32(imgToTest_padded[:, :, :, np.newaxis]),
 		                         (3, 2, 0, 1)) / 255 - 0.5  # required shape (1, c, h, w)
@@ -24,10 +26,11 @@ def apply_model(oriImg, model, multiplier):
 		input_var = torch.autograd.Variable(torch.from_numpy(input_img).cuda())
 
 		# get the features
-		heat1, heat2, heat3, heat4, heat5, heat6 = model(input_var)
+		# heat1, heat2, heat3, heat4, heat5, heat6 = model(input_var)
+		heat = model(input_var)
 
 		# get the heatmap
-		heatmap = heat6.data.cpu().numpy()
+		heatmap = heat.data.cpu().numpy()
 		heatmap = np.transpose(np.squeeze(heatmap), (1, 2, 0))  # (h, w, c)
 		heatmap = cv2.resize(heatmap, (0, 0), fx=stride, fy=stride, interpolation=cv2.INTER_CUBIC)
 		heatmap = heatmap[:imgToTest_padded.shape[0] - pad[2], :imgToTest_padded.shape[1] - pad[3], :]
@@ -85,9 +88,9 @@ def apply_model(oriImg, model, multiplier):
 	return  keypoints, canvas
 
 
-def write_csv(results):
+def write_csv(name, results):
 	import csv
-	with open('result_0309.csv', 'w') as f:
+	with open(name, 'w') as f:
 		writer = csv.writer(f)
 		writer.writerows(results)
 
@@ -99,86 +102,121 @@ def prepare_row(ann, keypoints):
 	for i in range(24):
 		cell_str = str(int(keypoints[i][0])) + '_' + str(int(keypoints[i][1])) + '_' + str(int(keypoints[i][2]))
 		keypoints_str.append(cell_str)
-
-	# filter peaks by category label
-	# if category is 'blouse':    # 2-8 11-16
-	# 	for i in range(24):
-	# 		if((i+2>8 and i+2<11) or
-	# 			   (i+2>16)):
-	# 			keypoints_str[i] = '-1_-1_-1'
-	#
-	# elif category is 'outwear': # 2-3 5-8 11-16
-	# 	for i in range(24):
-	# 		if((i+2>3 and i+2<5) or
-	# 		    (i+2>8 and i+2<11) or
-	# 			   (i+2>16) ):
-	# 			keypoints_str[i] = '-1_-1_-1'
-	#
-	# elif category is 'trousers':# 17-18 21-25
-	# 	for i in range(24):
-	# 		if((i+2<17) or
-	# 		    (i+2>18 and i+2<21)):
-	# 			keypoints_str[i] = '-1_-1_-1'
-	# elif category is 'skirt':   # 17-20
-	# 	for i in range(24):
-	# 		if((i+2<17) or
-	# 		    (i+2>20)):
-	# 			keypoints_str[i] = '-1_-1_-1'
-	# elif category is 'dress':   # 2-14 19-20
-	# 	for i in range(24):
-	# 		if((i+2>14 and i+2<19) or
-	# 		    (i+2>20)):
-	# 			keypoints_str[i] = '-1_-1_-1'
-
 	row = [image_name, category] + keypoints_str
 	return row
 
-
-
-def main():
-	os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-
-	#--------------------------- model -------------------------------------------------------------------------------
-	import models.CPM
-	pytorch_model = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/Heatmap/experiments/CPM/110000.pth.tar'
-	model = models.CPM.PoseModel(num_point=25, pretrained=False)
-	#-----------------------------------------------------------------------------------------------------------------
-
-	img_dir = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/test/'
-	ann_path = '/data/xiaobing.wang/xiangyu.zhu/FashionAI/data/test/test.csv'
-	scale_search = [0.5, 0.7, 1.0, 1.3]
-	boxsize = 384
-	# -------------------------- pytorch model------------------
-	state_dict = torch.load(pytorch_model)['state_dict']
-	model.load_state_dict(state_dict)
-	model = model.cuda()
-	model.eval()
-	# --------------------------------------------------------
+def read_csv(ann_file):
+	info = []
 	anns = []
-	with open(ann_path, 'rb') as f:
+	with open(ann_file, 'rb') as f:
 		reader = csv.reader(f)
 		for row in reader:
 			anns.append(row)
-	info=anns[0]
+	info = anns[0]
 	anns = anns[1:]
-	#---------------------------------------------------------
-	num_imgs = len(anns) # 50
-	results = []
-	results.append(info)
+	return info, anns
 
-	for i in range(num_imgs):
-		print('{}/{}'.format(i, num_imgs))
-		ann = anns[i]
-		image_path = os.path.join(img_dir,ann[0])
-		oriImg = cv2.imread(image_path)
-		# multiplier = [x * boxsize / oriImg.shape[0] for x in scale_search]
-		multiplier = scale_search
-		keypoints, canvas = apply_model(oriImg, model, multiplier)
-		# cv2.imwrite(os.path.join('./result', ann[0].split('/')[-1]), canvas)
-		row = prepare_row(ann, keypoints)
-		results.append(row)
-	write_csv(results)
+def euclidean_distance(a, b):
+	return math.sqrt((a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2)
 
+def criterion(ann_gt, ann_dt):
+	category = ann_gt[1]
+	gt_kpt = -1 * np.ones((24, 3))
+	for i in range(len(gt_kpt)):
+		x_str, y_str, vis_str = ann_gt[i + 2].split('_')
+		gt_kpt[i][0], gt_kpt[i][1], gt_kpt[i][2] = int(x_str), int(y_str), int(vis_str)
+
+	dt_kpt = -1 * np.ones((24, 3))
+	for i in range(len(dt_kpt)):
+		x_str, y_str, vis_str = ann_dt[i + 2].split('_')
+		dt_kpt[i][0], dt_kpt[i][1], dt_kpt[i][2] = int(x_str), int(y_str), int(vis_str)
+
+	if category in ['blouse','outwear','dress']: # armpit distance
+		thre = euclidean_distance(gt_kpt[5], gt_kpt[6])
+	elif category in ['trousers', 'skirt']: # waistband distance
+		thre = euclidean_distance(gt_kpt[7], gt_kpt[8])
+	if thre == 0:
+		return []
+	score = []
+	for i in range(len(gt_kpt)):
+		if gt_kpt[i][2] == 1:
+			#if dt_kpt[i][2] == -1:
+			#	score.append(2)
+			#else:
+			score.append(1.0* euclidean_distance(gt_kpt[i],dt_kpt[i])/ thre)
+	return score
+	#print('score = {}'.format(score))
+
+
+
+def evaluate(gt_file, dt_file, num_imgs):
+	info_gt, anns_gt = read_csv(gt_file)
+	info_dt, anns_dt = read_csv(dt_file)
+	anns_gt = anns_gt[:num_imgs]
+	assert len(anns_gt) == len(anns_dt)
+	scores = []
+	for i in range(len(anns_gt)):
+		ann_gt = anns_gt[i]
+		ann_dt = anns_dt[i]
+		score = criterion(ann_gt, ann_dt)
+		scores += score
+	value = sum(scores)/len(scores)
+	print('score = {}'.format(value))
+
+def eval():
+	gt_file = '../FashionAI/data/train/Annotations/val.csv'
+	dt_file = 'val_result.csv'
+	# dt_file = 'modify.csv'
+
+	num_imgs = 100
+	evaluate(gt_file, dt_file,num_imgs)
+
+
+def main():
+    os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+
+    # --------------------------- model -------------------------------------------------------------------------------
+    import models.CPM_FPN
+    pytorch_model = '../FashionAI/Heatmap/experiments/CPM_FPN3/120000_8%.pth.tar'
+    model = models.CPM_FPN.pose_estimation(class_num=25, pretrain=False)
+    # -----------------------------------------------------------------------------------------------------------------
+
+    img_dir = '../FashionAI/data/test/'
+    ann_path = '../FashionAI/data/test/test.csv'
+    result_name = 'result.csv'
+    # scale_search = [0.5, 0.7, 1.0, 1.3]  # [0.5, 1.0, 1.5]
+    scale_search = [0.5, 0.7, 1.0]
+    boxsize = 384
+# -------------------------- pytorch model------------------
+    state_dict = torch.load(pytorch_model)['state_dict']
+    model.load_state_dict(state_dict)
+    model = model.cuda()
+    model.eval()
+# --------------------------------------------------------
+    anns = []
+    with open(ann_path, 'rb') as f:
+        reader = csv.reader(f)
+        for row in reader:
+            anns.append(row)
+    info=anns[0]
+    anns = anns[1:]
+    #---------------------------------------------------------
+    num_imgs = len(anns)
+    results = []
+    results.append(info)
+
+    for i in range(num_imgs):
+        print('{}/{}'.format(i, num_imgs))
+        ann = anns[i]
+        image_path = os.path.join(img_dir, ann[0])
+        oriImg = cv2.imread(image_path)
+        # multiplier = [x * boxsize / oriImg.shape[0] for x in scale_search]
+        multiplier = scale_search
+        keypoints, canvas = apply_model(oriImg, model, multiplier)
+        # cv2.imwrite(os.path.join('./result', ann[0].split('/')[-1]), canvas)
+        row = prepare_row(ann, keypoints)
+        results.append(row)
+    write_csv(result_name, results)
 
 if __name__ == '__main__':
     main()

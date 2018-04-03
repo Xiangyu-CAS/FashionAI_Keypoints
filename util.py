@@ -99,11 +99,11 @@ def adjust_learning_rate(optimizer, iters, base_lr, policy_parameter, policy='st
         lr = max(lr * policy_parameter['gamma'], lr * (1 - (iters - stepstart) * 1.0 / (stepend - stepstart)) ** policy_parameter['power'])
 
     if multiple != None:
-        for i, param_group in enumerate(optimizer.param_groups):
-            param_group['lr'] = lr * multiple[i]
+	    for i, param_group in enumerate(optimizer.param_groups):
+		    param_group['lr'] = lr * multiple[i]
     else:
-        for i, param_group in enumerate(optimizer.param_groups):
-            param_group['lr'] = lr
+	    for i, param_group in enumerate(optimizer.param_groups):
+		    param_group['lr'] = lr
     return lr
 
 
