@@ -134,7 +134,7 @@ def criterion(ann_gt, ann_dt):
 	if category in ['blouse','outwear','dress']: # armpit distance
 		thre = euclidean_distance(gt_kpt[5], gt_kpt[6])
 	elif category in ['trousers', 'skirt']: # waistband distance
-		thre = euclidean_distance(gt_kpt[7], gt_kpt[8])
+		thre = euclidean_distance(gt_kpt[15], gt_kpt[16])
 	if thre == 0:
 		return []
 	score = []
