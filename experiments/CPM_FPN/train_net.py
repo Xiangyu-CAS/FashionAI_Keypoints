@@ -9,7 +9,7 @@ import torch.backends.cudnn as cudnn
 import util
 import cv2
 import argparse
-import models.CPM_FPN3
+import models.CPM_FPN
 import torchvision.transforms as transforms
 import time
 
@@ -18,7 +18,7 @@ def parse():
     return parser.parse_args()
 
 def construct_model(args):
-    model = models.CPM_FPN3.pose_estimation(class_num=25, pretrain=True)
+    model = models.CPM_FPN.pose_estimation(class_num=25, pretrain=True)
     model.cuda()
     print (model)
     return model
@@ -138,7 +138,7 @@ def train_net(model, args):
 	return
 
 if __name__ == '__main__':
-	os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+	os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 	args = parse()
 	model = construct_model(args)
 	train_net(model, args)
