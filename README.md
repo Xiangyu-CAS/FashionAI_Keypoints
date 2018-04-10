@@ -18,6 +18,9 @@ experiments
 3.  CPM_FPN + data_aug -> 8% on valset, 12% on leaderboard
 
 
+
+
+
 #---------------------------------------------- Related Papers--------------------------------------------------------------
 
 1. Attentive Fashion Grammar Network for Fashion Landmark Detection and Clothing Category Classification (BIT, UCLA) - CVPR 2018
