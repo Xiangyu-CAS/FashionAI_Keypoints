@@ -30,4 +30,4 @@ experiments
 
 
 3. A Coarse-Fine Network for Keypoint Localization (U of Sydeny)  - ICCV 2017
--  Worthy reading
+-  Worthy reading. 非常有意思，文章有两个部分，第一个部分Coarse利用detection的方式检测潜在的目标区域，第二个部分利用softmax的方式分类点。
